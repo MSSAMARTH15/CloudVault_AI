@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
-
+import {
+  useEffect,
+  useState,
+  useRef,
+} from "react";
+import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   uploadFile,
   getMyFiles,
@@ -8,6 +13,7 @@ import {
 } from "../services/fileService";
 
 import "../App.css";
+import Sidebar from "../components/Sidebar";
 
 function Dashboard() {
   const [file, setFile] =
@@ -19,6 +25,14 @@ function Dashboard() {
     useState("");
     const [activities, setActivities] =
   useState([]);
+  const dashboardRef =
+  useRef(null);
+
+const uploadRef =
+  useRef(null);
+
+const filesRef =
+  useRef(null);
   const loadFiles = async () => {
     try {
       const data =
@@ -89,6 +103,7 @@ const handleDelete = async (
     }
   };
 
+  
   const handleDownload = async (
     fileId,
     fileName
@@ -168,25 +183,11 @@ const handleDelete = async (
 
   return (
     <div className="dashboard-layout">
-      <aside className="sidebar">
-        <h2>☁ CloudVault</h2>
+      <Sidebar />
 
-        <ul>
-          <li>🏠 Dashboard</li>
-          <li>📁 My Files</li>
-          <li>☁ Uploads</li>
-          <li>⚙ Settings</li>
-        </ul>
 
-        <button
-          className="logout-btn"
-          onClick={logout}
-        >
-          Logout
-        </button>
-      </aside>
-
-      <div className="dashboard">
+      <div className="dashboard"
+      ref={dashboardRef}>
         {/* STATS */}
 
         <div className="stats">
@@ -353,7 +354,8 @@ const handleDelete = async (
 </div>
         {/* UPLOAD SECTION */}
 
-        <div className="upload-card">
+        <div className="upload-card"
+        ref={uploadRef}>
           <h3>
             📤 Upload New File
           </h3>
@@ -394,7 +396,8 @@ const handleDelete = async (
 
         {/* FILES SECTION */}
 
-        <div className="files-section">
+        <div className="files-section"
+        ref={filesRef}>
           <div className="search-container">
   <input
     type="text"

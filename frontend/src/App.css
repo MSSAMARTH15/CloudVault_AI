@@ -978,3 +978,75 @@ body {
 .search-input::placeholder {
   color: #94a3b8;
 }
+
+.sidebar-link {
+  display: block;
+  width: 100%;
+
+  text-decoration: none;
+  color: #cbd5e1;
+
+  padding: 15px 20px;
+
+  border-radius: 12px;
+
+  transition: all 0.3s ease;
+}
+
+.sidebar-link:hover {
+  background: rgba(
+    59,
+    130,
+    246,
+    0.2
+  );
+
+  color: white;
+}
+.settings-container {
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 25px;
+  margin-bottom: 25px;
+  backdrop-filter: blur(10px);
+}
+
+.settings-card h3 {
+  margin-bottom: 15px;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.08);
+  color: white;
+  margin-bottom: 15px;
+}
+
+.settings-input::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+.profile-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 50px;
+  margin: 0 auto 20px;
+}
+
+.danger-card {
+  border: 1px solid rgba(255, 70, 70, 0.4);
+}

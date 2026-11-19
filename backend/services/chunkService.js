@@ -1,75 +1,129 @@
-const fs = require("fs");
-const path = require("path");
 
-const splitFileIntoChunks = (filePath, fileName) => {
-  const fileBuffer = fs.readFileSync(filePath);
+const fs = require("fs/promises");
+const path = require("path");
+const crypto = require("crypto");
+
+const {
+  storeChunk,
+  retrieveChunk,
+  checkNodeHealth,
+} = require("./storageClient");
+
+const NODE_IDS = [1, 2, 3];
+
+const splitFileIntoChunks = async (filePath, fileName) => {
+  const fileBuffer = await fs.readFile(filePath);
+
+  if (fileBuffer.length === 0) {
+    throw new Error("Cannot split an empty file");
+  }
 
   const chunkSize = Math.ceil(fileBuffer.length / 3);
+  const chunks = [];
 
-  const chunks = [
-    fileBuffer.slice(0, chunkSize),
-    fileBuffer.slice(chunkSize, chunkSize * 2),
-    fileBuffer.slice(chunkSize * 2),
-  ];
-
-  const nodes = [
-    "storage/node1",
-    "storage/node2",
-    "storage/node3",
-  ];
-
-  const replicaNodes = [
-    "storage/node2",
-    "storage/node3",
-    "storage/node1",
-  ];
+  for (
+    let offset = 0;
+    offset < fileBuffer.length;
+    offset += chunkSize
+  ) {
+    chunks.push(fileBuffer.subarray(offset, offset + chunkSize));
+  }
 
   const chunkInfo = [];
+  const storedChunks = [];
 
-  chunks.forEach((chunk, index) => {
-    const chunkName =
-      `${fileName}_chunk_${index + 1}`;
+  try {
+    for (let index = 0; index < chunks.length; index++) {
+      const chunk = chunks[index];
+      const chunkNumber = index + 1;
 
-    const chunkPath = path.join(
-      nodes[index],
-      chunkName
+      // Stable, filesystem-safe identifiers for remote storage.
+      const chunkId = crypto.randomUUID();
+      const replicaId = crypto.randomUUID();
+
+      const node = NODE_IDS[index];
+      const replicaNode = NODE_IDS[(index + 1) % NODE_IDS.length];
+
+      // Store the primary chunk and its replica on different nodes.
+      const primaryResult = await storeChunk(
+  node,
+  chunkId,
+  chunk
+);
+
+storedChunks.push({ node, chunkId });
+
+const replicaResult = await storeChunk(
+  replicaNode,
+  replicaId,
+  chunk
+);
+
+storedChunks.push({
+  node: replicaNode,
+  chunkId: replicaId,
+});
+
+      chunkInfo.push({
+        chunkNumber,
+        node,
+        chunkName: `${fileName}_chunk_${chunkNumber}`,
+        chunkPath: `remote:${node}:${chunkId}`,
+        replicaNode,
+        replicaPath: `remote:${replicaNode}:${replicaId}`,
+        checksum: primaryResult.sha256,
+      });
+    }
+
+    return chunkInfo;
+  } catch (error) {
+    // Best-effort cleanup if any remote write fails.
+    await Promise.allSettled(
+      storedChunks.map(({ node, chunkId }) =>
+        require("./storageClient").deleteChunk(node, chunkId)
+      )
     );
 
-    fs.writeFileSync(chunkPath, chunk);
+    throw error;
+  }
+};
+const repairChunk = async (
+  primaryNode,
+  replicaNode,
+  chunkBuffer
+) => {
+  // Try the original primary node first.
+  // If unavailable, try the remaining nodes.
+  const candidateNodes = [
+    primaryNode,
+    ...NODE_IDS.filter((node) => node !== primaryNode),
+  ].filter((node) => node !== replicaNode);
 
-    const replicaName =
-      `${fileName}_chunk_${index + 1}_replica`;
+  for (const nodeId of candidateNodes) {
+    try {
+      await checkNodeHealth(nodeId);
 
-    const replicaPath = path.join(
-      replicaNodes[index],
-      replicaName
-    );
+      const newChunkId = crypto.randomUUID();
 
-    fs.writeFileSync(replicaPath, chunk);
+      await storeChunk(nodeId, newChunkId, chunkBuffer);
 
-    chunkInfo.push({
-      chunkNumber: index + 1,
+      return {
+        nodeId,
+        chunkId: newChunkId,
+        chunkPath: `remote:${nodeId}:${newChunkId}`,
+      };
+    } catch (error) {
+      console.warn(
+        `Repair attempt on node ${nodeId} failed:`,
+        error.message
+      );
+    }
+  }
 
-      node: index + 1,
-
-      chunkName,
-
-      chunkPath,
-
-      replicaNode:
-        index === 0
-          ? 2
-          : index === 1
-          ? 3
-          : 1,
-
-      replicaPath,
-    });
-  });
-
-  return chunkInfo;
+  throw new Error("Unable to repair chunk: no healthy storage node available");
 };
 
 module.exports = {
   splitFileIntoChunks,
+  repairChunk,
 };

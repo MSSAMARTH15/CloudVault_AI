@@ -3,12 +3,11 @@ import axios from "axios";
 const API_URL =
   "http://localhost:5000/api/files";
 
-export const uploadFile = async (file) => {
-  const token =
-    localStorage.getItem("token");
+
+export const uploadFile = async (file, onProgress) => {
+  const token = localStorage.getItem("token");
 
   const formData = new FormData();
-
   formData.append("file", file);
 
   const response = await axios.post(
@@ -18,11 +17,21 @@ export const uploadFile = async (file) => {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      onUploadProgress: (event) => {
+        if (event.total && onProgress) {
+          const percentage = Math.round(
+            (event.loaded * 100) / event.total
+          );
+
+          onProgress(percentage);
+        }
+      },
     }
   );
 
   return response.data;
 };
+
 
 export const getMyFiles = async () => {
   const token =

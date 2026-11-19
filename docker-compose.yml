@@ -1,0 +1,54 @@
+
+services:
+  storage-node1:
+    image: cloudvault-storage:1.0
+    build:
+      context: ./storage-node
+    container_name: cloudvault-node1
+    environment:
+      NODE_ID: node1
+      PORT: "7000"
+      STORAGE_DIR: /data
+    ports:
+      - "7001:7000"
+    volumes:
+      - cloudvault_node1_data:/data
+    restart: unless-stopped
+
+  storage-node2:
+    image: cloudvault-storage:1.0
+    build:
+      context: ./storage-node
+    container_name: cloudvault-node2
+    environment:
+      NODE_ID: node2
+      PORT: "7000"
+      STORAGE_DIR: /data
+    ports:
+      - "7002:7000"
+    volumes:
+      - cloudvault_node2_data:/data
+    restart: unless-stopped
+
+  storage-node3:
+    image: cloudvault-storage:1.0
+    build:
+      context: ./storage-node
+    container_name: cloudvault-node3
+    environment:
+      NODE_ID: node3
+      PORT: "7000"
+      STORAGE_DIR: /data
+    ports:
+      - "7003:7000"
+    volumes:
+      - cloudvault_node3_data:/data
+    restart: unless-stopped
+
+volumes:
+  cloudvault_node1_data:
+    external: true
+  cloudvault_node2_data:
+    external: true
+  cloudvault_node3_data:
+    external: true

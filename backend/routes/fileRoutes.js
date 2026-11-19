@@ -14,8 +14,13 @@ const {
   getMyFiles,
   deleteFile,
   simulateFailure,
+  getReplicationData,
 } = require("../controllers/fileController");
-
+router.get(
+  "/replication",
+  verifyToken,
+  getReplicationData
+);
 
 
 router.get(

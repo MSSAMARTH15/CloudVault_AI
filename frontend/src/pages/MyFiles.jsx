@@ -1,188 +1,255 @@
-import {
-  useEffect,
-  useState,
-} from "react";
 
+import { useEffect, useMemo, useState } from "react";
+import {
+  Files,
+  FileText,
+  FileImage,
+  FileSpreadsheet,
+  FileArchive,
+  File,
+  Download,
+  Trash2,
+  Search,
+  RefreshCw,
+} from "lucide-react";
+import { useLocation } from "react-router-dom";
 import {
   getMyFiles,
   downloadFile,
   deleteFile,
 } from "../services/fileService";
 
-import Sidebar from "../components/Sidebar";
-
 import "../App.css";
 
 function MyFiles() {
-  const [files, setFiles] =
-    useState([]);
-
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const location = useLocation();
+  const [files, setFiles] = useState([]);
+const [searchTerm, setSearchTerm] = useState(
+  location.state?.searchTerm || ""
+);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const loadFiles = async () => {
     try {
-      const data =
-        await getMyFiles();
-
+      setError("");
+      const data = await getMyFiles();
       setFiles(data);
-    } catch (error) {
-      console.log(error);
+    } catch (err) {
+      console.error("File loading error:", err);
+      setError("Unable to load your files. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
+  useEffect(() => {
+  if (location.state?.searchTerm) {
+    setSearchTerm(location.state.searchTerm);
+  }
+}, [location.state?.searchTerm]);
 
   useEffect(() => {
     loadFiles();
   }, []);
 
-  const handleDelete = async (
-    fileId
-  ) => {
+  const filteredFiles = useMemo(() => {
+    return files.filter((file) =>
+      file.file_name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  }, [files, searchTerm]);
+
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split(".").pop().toLowerCase();
+
+    if (extension === "pdf" || ["doc", "docx", "txt"].includes(extension)) {
+      return FileText;
+    }
+
+    if (["png", "jpg", "jpeg", "gif"].includes(extension)) {
+      return FileImage;
+    }
+
+    if (["xls", "xlsx", "csv"].includes(extension)) {
+      return FileSpreadsheet;
+    }
+
+    if (["zip", "rar", "7z"].includes(extension)) {
+      return FileArchive;
+    }
+
+    return File;
+  };
+
+  const formatSize = (bytes) => {
+    if (!bytes) return "0 B";
+
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const handleDownload = async (file) => {
     try {
-      await deleteFile(fileId);
-
-      alert(
-        "File Deleted Successfully"
-      );
-
-      loadFiles();
-    } catch (error) {
-      console.log(error);
+      setDownloadingId(file.file_id);
+      await downloadFile(file.file_id, file.file_name);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Unable to download this file.");
+    } finally {
+      setDownloadingId(null);
     }
   };
 
-  const getFileIcon = (
-    fileName
-  ) => {
-    const extension =
-      fileName
-        .split(".")
-        .pop()
-        .toLowerCase();
+  const handleDelete = async (file) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${file.file_name}"?`
+    );
 
-    switch (extension) {
-      case "pdf":
-        return "📕";
+    if (!confirmed) return;
 
-      case "png":
-      case "jpg":
-      case "jpeg":
-        return "🖼️";
+    try {
+      setDeletingId(file.file_id);
 
-      case "doc":
-      case "docx":
-        return "📄";
+      await deleteFile(file.file_id);
 
-      case "xls":
-      case "xlsx":
-        return "📊";
-
-      case "ppt":
-      case "pptx":
-        return "📽️";
-
-      case "zip":
-      case "rar":
-        return "📦";
-
-      default:
-        return "📁";
+      setFiles((previousFiles) =>
+        previousFiles.filter(
+          (item) => item.file_id !== file.file_id
+        )
+      );
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Unable to delete this file.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <div className="dashboard-layout">
-      <Sidebar />
+    <div className="dashboard">
+      <div className="files-page-header">
+        <div>
+          <h1>My Files</h1>
+          <p>Manage and access your stored files.</p>
+        </div>
 
-      <div className="dashboard">
-        <h1
-          style={{
-            marginBottom: "20px",
+        <button
+          className="monitoring-refresh"
+          onClick={() => {
+            setLoading(true);
+            loadFiles();
           }}
+          disabled={loading}
         >
-          📁 My Files
-        </h1>
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+      </div>
 
+      <div className="files-toolbar">
         <div className="search-container">
+          <Search size={18} />
           <input
             type="text"
-            placeholder="🔍 Search files..."
+            placeholder="Search your files..."
             value={searchTerm}
-            onChange={(e) =>
-              setSearchTerm(
-                e.target.value
-              )
-            }
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
         </div>
 
+        <span className="files-count">
+          {filteredFiles.length} files
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="recovery-state">
+          <RefreshCw className="spin" size={24} />
+          <p>Loading your files...</p>
+        </div>
+      ) : error ? (
+        <div className="recovery-state">
+          <p>{error}</p>
+          <button className="monitoring-refresh" onClick={loadFiles}>
+            Try Again
+          </button>
+        </div>
+      ) : filteredFiles.length === 0 ? (
+        <div className="recovery-empty">
+          <Files size={32} />
+          <h3>
+            {searchTerm ? "No matching files" : "No files yet"}
+          </h3>
+          <p>
+            {searchTerm
+              ? "Try another search term."
+              : "Upload your first file to see it here."}
+          </p>
+        </div>
+      ) : (
         <div className="files-grid">
-          {files
-            .filter((file) =>
-              file.file_name
-                .toLowerCase()
-                .includes(
-                  searchTerm.toLowerCase()
-                )
-            )
-            .map((file) => (
-              <div
-                className="premium-file-card"
-                key={
-                  file.file_id
-                }
-              >
-                <h3>
-                  {getFileIcon(
-                    file.file_name
-                  )}{" "}
+          {filteredFiles.map((file) => {
+            const Icon = getFileIcon(file.file_name);
+            const extension = file.file_name.split(".").pop().toUpperCase();
+
+            return (
+              <div className="premium-file-card" key={file.file_id}>
+                <div className="file-card-icon">
+                  <Icon size={26} />
+                </div>
+
+                <h3 title={file.file_name}>
                   {file.file_name}
                 </h3>
 
-                <p>
-                  Size:{" "}
-                  {(
-                    (file.original_size ||
-                      0) / 1024
-                  ).toFixed(2)}
-                  KB
-                </p>
+                <p>Size: {formatSize(file.original_size)}</p>
+                <p>Type: {extension}</p>
 
-                <p>
-                  Type:{" "}
-                  {file.file_name
-                    .split(".")
-                    .pop()
-                    .toUpperCase()}
-                </p>
+                <div className="file-card-actions">
+                  <button
+                    className="download-btn"
+                    onClick={() => handleDownload(file)}
+                    disabled={
+                      downloadingId === file.file_id ||
+                      deletingId === file.file_id
+                    }
+                  >
+                    <Download size={15} />
+                    {downloadingId === file.file_id
+                      ? "Downloading..."
+                      : "Download"}
+                  </button>
 
-                <button
-                  className="download-btn"
-                  onClick={() =>
-                    downloadFile(
-                      file.file_id,
-                      file.file_name
-                    )
-                  }
-                >
-                  Download
-                </button>
-
-                <button
-                  className="delete-btn"
-                  onClick={() =>
-                    handleDelete(
-                      file.file_id
-                    )
-                  }
-                >
-                  Delete
-                </button>
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(file)}
+                    disabled={
+                      deletingId === file.file_id ||
+                      downloadingId === file.file_id
+                    }
+                  >
+                    <Trash2 size={15} />
+                    {deletingId === file.file_id
+                      ? "Deleting..."
+                      : "Delete"}
+                  </button>
+                </div>
               </div>
-            ))}
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 }

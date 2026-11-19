@@ -5,7 +5,10 @@ const verifyToken = require("../middleware/authMiddleware");
 
 const {
   registerUser,
-  loginUser
+  loginUser,
+  updateUsername,
+  updatePassword,
+  deleteAccount,
 } = require("../controllers/authController");
 
 router.get("/test", (req, res) => {
@@ -24,8 +27,9 @@ router.get(
     });
   }
 );
-
+router.put("/username", verifyToken, updateUsername);
+router.put("/password", verifyToken, updatePassword);
 router.post("/register", registerUser);
 router.post("/login", loginUser);
-
+router.delete("/account", verifyToken, deleteAccount);
 module.exports = router;
